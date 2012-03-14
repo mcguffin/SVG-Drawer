@@ -2,10 +2,11 @@
 
 import sys, os,re
 from types import *
-from SVG import GMaker
-from xml.parsers.expat import ParserCreate
+from SVG import SVGRenderer
+from GMaker import GMaker
 import pprint
 from geometry import *
+import math
 
 if (len(sys.argv) < 2):
 	print "no file specified"
@@ -19,23 +20,37 @@ except:
 	exit()
 
 
-#b = CubicBezier(Point(0,0),Point(0,1),Point(1,0),Point(1,1))
+'''
+#b = QuadraticBezier(Point(2,3),Point(2,4),Point(3,4))
 #print b.length()
-#print b.tolines(Metrics.mm/2)
+#print b.tolines(Metrics.mm/4)
 #exit()
 
-# parse input file
-p = ParserCreate()
-interpreter = GMaker(precision=Metrics.mm)
+#g =  LinearEquation.fromAngleIntercept(math.pi*0.25,1)
+#print "g", g
+#print g.getX(12)
 
-p.StartElementHandler  = interpreter.startElement
-p.EndElementHandler    = interpreter.endElement
-p.CharacterDataHandler = interpreter.characterData
-p.ParseFile(f)
+f = Polygon()
+f.addPoint(Point(0,0))
+f.addPoint(Point(10,1))
+f.addPoint(Point(8,6))
+f.addPoint(Point(-2,4))
+
+pprint.pprint( f.getHatching(math.pi*0.25,1))
+
+#if g.intersects(l):
+#	print g.intersectionWith(l)
+
+'''
+
+
+# parse input file
+interpreter = SVGRenderer(precision=Metrics.mm)
+interpreter.parseFile(f)
 
 
 o=open(sys.argv[1]+".gcode",'w')
-o.write(interpreter.getDrawingCode())
+o.write(GMaker(interpreter).getDrawingCode())
 o.close()
 
 #svg = 

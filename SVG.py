@@ -1,7 +1,8 @@
 import re
+from xml.parsers.expat import ParserCreate
 from types import *
 from pprint import pprint
-from geometry import Metrics,CubicBezier,Point
+from geometry import Metrics,CubicBezier,Point,Form,Polygon
 import math
 
 
@@ -62,15 +63,16 @@ ToDo:
 - implement feedrate
 '''
 
-
-class GMaker:
+class LinearMoves:
 	lines=[]
+	
+	def getLines(self):
+		return self.lines
+
+class SVGRenderer(LinearMoves):
+	
 	funcmap={}
 	nodeNames = ["rect","circle","ellipse","line","polyline","polygon","path","svg"]
-	liftZ = 3
-	endZ = 30
-	offsetZ = 0
-	feedrate = 480
 	
 	def __init__(self,precision=Metrics.mm):
 		# create functions to be called from svg-nodes
@@ -78,7 +80,16 @@ class GMaker:
 			self.funcmap[nn]= eval('self.'+nn)
 			
 		self.precision = precision
+		self.forms = []
 		pass
+	
+	def parseFile(self,f):
+		p = ParserCreate()
+		p.StartElementHandler  = self.startElement
+		p.EndElementHandler    = self.endElement
+		p.CharacterDataHandler = self.characterData
+		p.ParseFile(f)
+		
 	
 	def startElement(self,name,attrs):
 		self[name](attrs)
@@ -91,39 +102,8 @@ class GMaker:
 	def characterData(self,data):
 		# don't care
 		pass
-	
-	def getPerforationCode(self):
-		# split lines according to self.precision
-		# moveto, down, up
-		pass
 
-	def getCutterCode(self):
-		# split lines according to self.precision
-		# moveto, set E, down, up
-		pass
-	
-	def getDrawingCode(self):
-		G="G1 F%d\n"%self.feedrate
-		for l in self.lines:
-			cmd = l["cmd"]
-			coord = l["args"]
-			if cmd=='M':
-				G+="G1 Z%d ; lift Z\n" % self.liftZ
-				G+="G1 X%f Y%f\n" % coord
-				G+="G1 Z%d ; return Z\n" % self.offsetZ
-			elif cmd == 'H':
-				G+="G1 X%f\n" % coord
-			elif cmd == 'V':
-				G+="G1 Y%f\n" % coord
-			elif cmd == 'L':
-				G+="G1 X%f Y%f\n" % coord
-		G="G1 Z%d\n"%self.endZ
-		
-		
-		return G
-	
 	# nodes
-	
 	def svg(self,attrs,end=False):
 		if (end):
 			#pprint( self.lines)
@@ -136,6 +116,7 @@ class GMaker:
 	# shapes
 	def circle(self,attrs,end=False):
 		if end: return
+		self._form(Polygon())
 		r = float(attrs["r"])*unit
 		x = float(attrs["cx"])*unit
 		y = float(attrs["cy"])*unit
@@ -145,6 +126,7 @@ class GMaker:
 		
 	def ellipse(self,attrs,end=False):
 		if end: return
+		self._form(Polygon())
 		rx = float(attrs["rx"])*unit
 		ry = float(attrs["ry"])*unit
 		x = float(attrs["cx"])*unit
@@ -160,6 +142,7 @@ class GMaker:
 		
 	def rect(self,attrs,end=False):
 		if end: return
+		self._form(Polygon())
 		x=float(attrs["x"])*unit
 		y=float(attrs["y"])*unit
 		w=float(attrs["width"])*unit
@@ -173,6 +156,7 @@ class GMaker:
 
 	def line(self,attrs,end=False):
 		if end: return
+		self._form(Form())
 		x1=float(attrs["x1"])*unit
 		y1=float(attrs["y1"])*unit
 		x2=float(attrs["x2"])*unit
@@ -184,6 +168,7 @@ class GMaker:
 		
 	def polyline(self,attrs,end=False):
 		if end: return
+		self._form(Form())
 		points = attrs["points"].split()
 		x,y = eval("("+points[0]+")")
 		self._mov(x*unit,y*unit)
@@ -194,6 +179,7 @@ class GMaker:
 		
 	def polygon(self,attrs,end=False):
 		if end: return
+		self._form(Polygon())
 		points = self.polyline(attrs)
 		# close
 		x,y = eval("("+points[0]+")")
@@ -203,6 +189,7 @@ class GMaker:
 		if end: return
 		self.curX = self.curY = 0
 		commands = self.parse_d(attrs["d"])
+		self._form(Polygon())
 		for cm in commands:
 			cmd = cm["cmd"]
 			args = cm["args"]
@@ -289,8 +276,7 @@ class GMaker:
 				pass
 				
 			# c,C,s,S,z,Z,q,Q,t,T,a,A
-			
-		pprint(commands)
+		
 		pass
 	
 	def bezier(self,args):
@@ -298,7 +284,7 @@ class GMaker:
 		a,b,self.lastcX,self.lastcY,self.curX,self.curY=args
 		ln = bz.tolines(self.precision)
 		for l in ln:
-			self._lin(l.p2.x,l.p2.y)
+			self._lin(l.pn.x,l.pn.y)
 		
 		
 	def defaultShape(self,attrs,end=False):
@@ -311,14 +297,22 @@ class GMaker:
 		else:
 			return self.defaultShape
 	
-	def _hor(self,x):
-		self.lines.append({"cmd":"H","args":(x) })
-	def _ver(self,y):
-		self.lines.append({"cmd":"V","args":(y) })
+	# reduced commands
+	def _form(self,form):
+		self.forms.append(form)
 	def _mov(self,x,y):
-		self.lines.append({"cmd":"M","args":(x,y) })
+		# = begin shape
+		#self.lines.append({"cmd":"M","args":Line(x,y) })
+		self.forms[len(self.forms)-1].addPoint(Point(x,y),'move')
+	def _hor(self,x):
+		self.forms[len(self.forms)-1].addPoint(Point(x,self.curY))
+		#self.lines.append({"cmd":"H","args":Line(x,self.curY) })
+	def _ver(self,y):
+		self.forms[len(self.forms)-1].addPoint(Point(self.curX,y))
+		#self.lines.append({"cmd":"V","args":Line(self.curX,y) })
 	def _lin(self,x,y):
-		self.lines.append({"cmd":"L","args":(x,y) })
+		self.forms[len(self.forms)-1].addPoint(Point(x,y))
+		#self.lines.append({"cmd":"L","args":Line(x,y) })
 		
 
 
