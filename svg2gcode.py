@@ -45,13 +45,16 @@ pprint.pprint( f.getHatching(math.pi*0.25,1))
 
 
 # parse input file
-interpreter = SVGRenderer(precision=Metrics.mm)
+interpreter = SVGRenderer(precision=Metrics.mm*0.5)
 interpreter.parseFile(f)
 
-
-o=open(sys.argv[1]+".gcode",'w')
+outfile = sys.argv[1]+".gcode"
+o=open(outfile,'w')
 o.write(GMaker(interpreter).getDrawingCode())
 o.close()
+
+print "Saved gcode to %s" % outfile
+print "Done!"
 
 #svg = 
 

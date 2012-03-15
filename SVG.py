@@ -143,8 +143,8 @@ class SVGRenderer(LinearMoves):
 	def rect(self,attrs,end=False):
 		if end: return
 		self._form(Polygon())
-		x=float(attrs["x"])*unit
-		y=float(attrs["y"])*unit
+		x=self.curX=float(attrs["x"])*unit
+		y=self.curY=float(attrs["y"])*unit
 		w=float(attrs["width"])*unit
 		h=float(attrs["height"])*unit
 		self._mov(x,y)
@@ -194,31 +194,22 @@ class SVGRenderer(LinearMoves):
 			cmd = cm["cmd"]
 			args = cm["args"]
 			if cmd=='M':
-				self.curX,self.curY=args
-				self._mov(self.curX,self.curY)
+				self._mov(args[0],args[1])
 			elif cmd=='m':
-				self.curX+=args[0]
-				self.curY+=args[1]
-				self._mov(self.curX,self.curY)
+				self._mov(self.curX+args[0],self.curY+args[1])
 			elif cmd=='L':
-				self.curX,self.curY=args
-				self._lin(self.curX,self.curY)
+				self._lin(args[0],args[1])
 			elif cmd=='l':
-				self.curX+=args[0]
-				self.curY+=args[1]
-				self._lin(self.curX,self.curY)
+				self._lin(self.curX+args[0],self.curY+args[1])
 			elif cmd=='H':
-				self.curX=args[0]
-				self._hor(self.curX)
+				self._hor(self.curX+args[0])
 			elif cmd=='h':
-				self.curX+=args[0]
-				self._hor(self.curX)
+				self._hor(self.curX+args[0])
 			elif cmd=='V':
 				self.curY=args[0]
 				self._ver(self.curY)
 			elif cmd=='v':
-				self.curY+=args[0]
-				self._ver(self.curY)
+				self._ver(self.curY+args[0])
 			
 			elif cmd=="C":
 				self.bezier(args)
@@ -304,14 +295,20 @@ class SVGRenderer(LinearMoves):
 		# = begin shape
 		#self.lines.append({"cmd":"M","args":Line(x,y) })
 		self.forms[len(self.forms)-1].addPoint(Point(x,y),'move')
+		self.curX=x
+		self.curY=y
 	def _hor(self,x):
 		self.forms[len(self.forms)-1].addPoint(Point(x,self.curY))
+		self.curX=x
 		#self.lines.append({"cmd":"H","args":Line(x,self.curY) })
 	def _ver(self,y):
 		self.forms[len(self.forms)-1].addPoint(Point(self.curX,y))
+		self.curY=y
 		#self.lines.append({"cmd":"V","args":Line(self.curX,y) })
 	def _lin(self,x,y):
 		self.forms[len(self.forms)-1].addPoint(Point(x,y))
+		self.curX=x
+		self.curY=y
 		#self.lines.append({"cmd":"L","args":Line(x,y) })
 		
 

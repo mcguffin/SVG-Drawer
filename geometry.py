@@ -105,7 +105,7 @@ class Point:
 		return p
 	
 	def __eq__(self,other):
-		return self.x == other.y and self.y == other.y
+		return other != None and self.x == other.y and self.y == other.y
 	
 	def __ne__(self,other):
 		return other == None or self.x != other.y or self.y != other.y
@@ -196,7 +196,7 @@ class Line:
 		return self.p0 == other.p0 and self.pn == other.pn
 	
 	def __ne__(self,other):
-		return other == None or self.p0 != other.p0 or self.pn != other.pn
+		return not self.__eq__(other)
 	
 	def __str__(self):
 		return "(Line: p0=%s pn=%s)" % (self.p0,self.pn)
@@ -266,8 +266,12 @@ class LinearEquation:
 		return self.a*x + self.b
 		
 	def getX(self,y):
-		if self.x != None: return self.x
-		return (y - self.b)/self.a
+		if self.a == float('inf'): return self.x
+		elif self.a == 0: return 0
+		return (y - self.b)/self.a # 
+	
+	def getLineBetweenX(self,x0,xn):
+		return Line(Point(x0,self.getY(x0)),Point(xn,self.getY(xn)))
 	
 	def intersects(self,line):
 		if not isinstance(line,Line):
@@ -286,9 +290,16 @@ class LinearEquation:
 			raise TypeError("'line' is not of type Line")
 		p = Point()
 		g = self.fromLine(line)
-		p.x =  (g.b - self.b) / (self.a-g.a)
-		p.y = g.getY(p.x)
-		if math.isnan(p.y): p.y=self.getY(p.x)
+		if self.a == float('inf'):
+			p.x = self.x
+			p.y = g.getY(self.x)
+		elif g.a == float('inf'):
+			p.x = g.x
+			p.y = self.getY(p.x)
+		else:
+			p.x =  (g.b - self.b) / (self.a-g.a)
+			p.y = g.getY(p.x)
+		#if math.isnan(p.y): p.y=self.getY(p.x)
 		return p
 		
 	def __str__(self):
@@ -460,39 +471,43 @@ class Polygon(Form):
 		if self.lines != None: return self.lines
 		self.lines = Form.getLines(self)
 		l = len(self.lines)
-		
-		self.lines.append(Line(self.lines[l-1].pn,self.lines[0].p0))
+
+		if str(self.lines[l-1].pn) != str(self.lines[0].p0): # close if needed
+			self.lines.append(Line(self.lines[l-1].pn,self.lines[0].p0))
 		return self.lines
 	
 	# always closed!
 	def getHatching(self,angle,distance):
 		# get bounds accoring to angle
 		angle = angle%math.pi
-		
+		vector = Point.fromPolar(distance,angle+math.pi*0.5)
 		if angle > math.pi/2:
 			p = self.bounds.p0
 			test = self.bounds
+			op = lambda x1,x2: x1 > x2
+			vector *= -1
 		else:
 			p = Point(self.bounds.pn.x, self.bounds.p0.y)
 			test = Line(p,Point(self.bounds.p0.x, self.bounds.pn.y))
-		vector = Point.fromPolar(distance,angle+math.pi*0.5)
-		#print p,test, vector
+			op = lambda x1,x2: x1 < x2
+		
+		i=0
 		pts = []
 		while 1:
 			# make new LinearEquation
 			ls = LinearEquation.fromPointAngle(p+vector*0.5,angle)
-			if not ls.intersects(test): break
+			if not ls.intersects(test): break;
 			pts.append([])
 			for l in self.getLines():
 				if ls.intersects(l):
 					# find intersection, add point
 					pts[len(pts)-1].append(ls.intersectionWith(l))
-					pass
-			# edit pts[len(pts)-1]: delete duplicates, sot by x,y
 			p += vector
 		lines = []
 		# we are still too overtrustful...
-		for plist in pts:
+		for pls in pts:
+			# sort plist by point.x, point.y
+			plist = sorted(pls, key=lambda p: p.x)
 			for i in range(0,len(plist),2):
 				lines.append(Line(plist[i],plist[i+1]))
 		return lines

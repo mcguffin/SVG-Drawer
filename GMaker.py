@@ -25,7 +25,6 @@ class GMaker:
 		for form in self.data.forms:
 			
 			
-			
 			lines = form.getLines()
 			
 			coord = ((lines[0].p0*t1)+t2).value()
@@ -37,8 +36,9 @@ class GMaker:
 				G+="G1 X%f Y%f\n" % ((l.pn*t1)+t2).value()
 			
 			
+			angles = [math.pi*0.625,math.pi*0.75]
 			angles = [math.pi*0.125,math.pi*0.25,math.pi*0.375,math.pi*0.5,math.pi*0.625,math.pi*0.75]
-			
+			angles = [math.pi*0.25]
 			for angle in angles:
 				odd = False
 				for f in form.getHatching(angle,2):
@@ -49,7 +49,7 @@ class GMaker:
 					G+="G1 Z%d ; return Z\n" % self.offsetZ
 					G+="G1 X%f Y%f\n" % ((f.pn*t1)+t2).value()
 					odd = not odd
-				
+			
 		G+="G1 Z%d\n"%self.endZ
 		#print G
 		return G
