@@ -4,9 +4,9 @@
 <svg version="1.1" id="Ebene_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
 	 width="595.279px" height="841.89px" viewBox="0 0 595.279 841.89" enable-background="new 0 0 595.279 841.89"
 	 xml:space="preserve">
-<path stroke="#951B81" stroke-width="2.5" stroke-miterlimit="1.5" d="M56.504,19.709c-3.863,3.864-20.479,10.49-22.479,8.49
-	s4.625-18.617,8.489-22.481c3.862-3.863,10.127-3.863,13.99,0C60.367,9.581,60.367,15.845,56.504,19.709z"/>
-<path stroke="#951B81" stroke-width="2.5" stroke-miterlimit="1.5" d="M47.51,107.491c-11.188,0-20.26-9.07-20.26-20.26
-	c0-11.189,9.07-20.26,20.26-20.26h14.1v-0.32c0-15.656-12.69-28.347-28.346-28.347c-15.656,0-28.348,12.691-28.348,28.347v28.346
-	c0,15.655,12.69,28.347,28.348,28.347c11.171,0,26.446-16.854,26.446-16.854L47.51,107.491z"/>
+<rect x="37.473" y="34.778" stroke="#FF7D3F" stroke-miterlimit="1.5" width="56" height="56.667"/>
+<rect x="131.473" y="38.111" width="58.667" height="47.333"/>
+<rect x="226.139" y="22.111" fill="#FFC900" stroke="#FFFFFF" stroke-miterlimit="1.5" width="81.333" height="76.667"/>
+<rect x="336.139" y="18.111" fill="#FFC900" stroke="#000000" stroke-miterlimit="1.5" width="88" height="81.333"/>
+<rect x="447.473" y="20.778" fill="#FFC900" stroke="#000000" stroke-width="2" stroke-miterlimit="1.5" width="88" height="81.333"/>
 </svg>

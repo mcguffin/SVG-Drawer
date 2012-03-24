@@ -83,6 +83,27 @@ class SVGRenderer(LinearMoves):
 		self.forms = []
 		pass
 	
+	def reduce_color(self,color):
+		n = eval('0x'+color.replace('#',''))
+		b = n%256
+		g = (n>>8)%256
+		r = (n>>16)%256
+		return 255-(r+g+b)/3
+		
+	def drawing_attrs(self,attrs):
+		bwidth = 1
+		bcolor = 0
+		fill = 255
+		if "fill" in attrs:
+			fill = self.reduce_color(attrs["fill"])
+			
+		if "stroke" in attrs:
+			bcolor = self.reduce_color(attrs["stroke"])
+			if "stroke-width" in attrs:
+				bwidth = attrs["stroke-width"]
+				
+		return (bwidth,bcolor),fill
+	
 	def parseFile(self,f):
 		p = ParserCreate()
 		p.StartElementHandler  = self.startElement
@@ -116,7 +137,7 @@ class SVGRenderer(LinearMoves):
 	# shapes
 	def circle(self,attrs,end=False):
 		if end: return
-		self._form(Polygon())
+		self._form(Polygon(*self.drawing_attrs(attrs)))
 		r = float(attrs["r"])*unit
 		x = float(attrs["cx"])*unit
 		y = float(attrs["cy"])*unit
@@ -126,7 +147,7 @@ class SVGRenderer(LinearMoves):
 		
 	def ellipse(self,attrs,end=False):
 		if end: return
-		self._form(Polygon())
+		self._form(Polygon(*self.drawing_attrs(attrs)))
 		rx = float(attrs["rx"])*unit
 		ry = float(attrs["ry"])*unit
 		x = float(attrs["cx"])*unit
@@ -142,7 +163,8 @@ class SVGRenderer(LinearMoves):
 		
 	def rect(self,attrs,end=False):
 		if end: return
-		self._form(Polygon())
+		print attrs
+		self._form(Polygon(*self.drawing_attrs(attrs)))
 		x=self.curX=float(attrs["x"])*unit
 		y=self.curY=float(attrs["y"])*unit
 		w=float(attrs["width"])*unit
@@ -156,7 +178,7 @@ class SVGRenderer(LinearMoves):
 
 	def line(self,attrs,end=False):
 		if end: return
-		self._form(Form())
+		self._form(Form(*self.drawing_attrs(attrs)))
 		x1=float(attrs["x1"])*unit
 		y1=float(attrs["y1"])*unit
 		x2=float(attrs["x2"])*unit
@@ -168,7 +190,7 @@ class SVGRenderer(LinearMoves):
 		
 	def polyline(self,attrs,end=False):
 		if end: return
-		self._form(Form())
+		self._form(Form(*self.drawing_attrs(attrs)))
 		points = attrs["points"].split()
 		x,y = eval("("+points[0]+")")
 		self._mov(x*unit,y*unit)
@@ -179,7 +201,7 @@ class SVGRenderer(LinearMoves):
 		
 	def polygon(self,attrs,end=False):
 		if end: return
-		self._form(Polygon())
+		self._form(Polygon(*self.drawing_attrs(attrs)))
 		points = self.polyline(attrs)
 		# close
 		x,y = eval("("+points[0]+")")
@@ -189,7 +211,7 @@ class SVGRenderer(LinearMoves):
 		if end: return
 		self.curX = self.curY = 0
 		commands = self.parse_d(attrs["d"])
-		self._form(Polygon())
+		self._form(Polygon(*self.drawing_attrs(attrs)))
 		for cm in commands:
 			cmd = cm["cmd"]
 			args = cm["args"]
@@ -202,12 +224,11 @@ class SVGRenderer(LinearMoves):
 			elif cmd=='l':
 				self._lin(self.curX+args[0],self.curY+args[1])
 			elif cmd=='H':
-				self._hor(self.curX+args[0])
+				self._hor(args[0])
 			elif cmd=='h':
 				self._hor(self.curX+args[0])
 			elif cmd=='V':
-				self.curY=args[0]
-				self._ver(self.curY)
+				self._ver(args[0])
 			elif cmd=='v':
 				self._ver(self.curY+args[0])
 			
@@ -262,6 +283,7 @@ class SVGRenderer(LinearMoves):
 				pass
 				
 			elif cmd=="Z":
+				self._cls()
 				pass
 			elif cmd=="z":
 				pass
@@ -293,24 +315,22 @@ class SVGRenderer(LinearMoves):
 		self.forms.append(form)
 	def _mov(self,x,y):
 		# = begin shape
-		#self.lines.append({"cmd":"M","args":Line(x,y) })
 		self.forms[len(self.forms)-1].addPoint(Point(x,y),'move')
 		self.curX=x
 		self.curY=y
 	def _hor(self,x):
 		self.forms[len(self.forms)-1].addPoint(Point(x,self.curY))
 		self.curX=x
-		#self.lines.append({"cmd":"H","args":Line(x,self.curY) })
 	def _ver(self,y):
 		self.forms[len(self.forms)-1].addPoint(Point(self.curX,y))
 		self.curY=y
-		#self.lines.append({"cmd":"V","args":Line(self.curX,y) })
 	def _lin(self,x,y):
 		self.forms[len(self.forms)-1].addPoint(Point(x,y))
 		self.curX=x
 		self.curY=y
-		#self.lines.append({"cmd":"L","args":Line(x,y) })
-		
+	def _cls(self):
+		p0 = self.forms[len(self.forms)-1].points[0]
+		self.forms[len(self.forms)-1].addPoint(Point(p0.x,p0.y))
 
 
 

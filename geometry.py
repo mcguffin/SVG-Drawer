@@ -435,8 +435,13 @@ class CubicBezier(Bezier):
 
 
 class Form:
+	border=None
+	fill=None
 	
-	def __init__(self):
+	def __init__(self,border=(1,0),fill=255): # border=width,color, fill=color
+		self.border_width , self.border_color = border
+		self.fill=fill
+		
 		self.lines = None
 		self.points=[]
 		self.bounds = Line(Point(float('inf'),float('inf')),Point(-float('inf'),-float('inf')))
@@ -453,31 +458,36 @@ class Form:
 		self.points.append((type,point))
 	
 	def getLines(self):
+		# move within lines (form - form)
 		if self.lines == None:
-			prev = None
 			self.lines = []
-			for cmd,p in self.points:
-				if prev != None and cmd == 'draw': 
-					self.lines.append(Line(prev,p))
-				prev = p
-				
+			for i in range(1,len(self.points)):
+				cmd,p = self.points[i]
+				#if cmd == 'draw': 
+				self.lines.append((cmd,Line(self.points[i-1][1],p)))
 		return self.lines
 		
 	
 class Polygon(Form):
 	
 	
-	def getLines(self):
-		if self.lines != None: return self.lines
-		self.lines = Form.getLines(self)
-		l = len(self.lines)
-
-		if str(self.lines[l-1].pn) != str(self.lines[0].p0): # close if needed
-			self.lines.append(Line(self.lines[l-1].pn,self.lines[0].p0))
-		return self.lines
+#	def getLines(self):
+#		if self.lines != None: return self.lines
+#		self.lines = Form.getLines(self)
+#		l = len(self.lines)
+#
+#		if str(self.lines[l-1][1].pn) != str(self.lines[0][1].p0): # close if needed
+#			self.lines.append(("draw",Line(self.lines[l-1][1].pn,self.lines[0][1].p0)))
+#		return self.lines
+	
+	
+	def getDrawable(self):
+		
+		pass
+	
 	
 	# always closed!
-	def getHatching(self,angle,distance):
+	def getHatchingLayer(self,angle,distance):
 		# get bounds accoring to angle
 		angle = angle%math.pi
 		vector = Point.fromPolar(distance,angle+math.pi*0.5)
@@ -498,7 +508,8 @@ class Polygon(Form):
 			ls = LinearEquation.fromPointAngle(p+vector*0.5,angle)
 			if not ls.intersects(test): break;
 			pts.append([])
-			for l in self.getLines():
+			for cmd,l in self.getLines():
+				if cmd=='move': continue
 				if ls.intersects(l):
 					# find intersection, add point
 					pts[len(pts)-1].append(ls.intersectionWith(l))
@@ -506,10 +517,14 @@ class Polygon(Form):
 		lines = []
 		# we are still too overtrustful...
 		for pls in pts:
-			# sort plist by point.x, point.y
+			# sort plist by point.x, point.y - x or y depends on angle
 			plist = sorted(pls, key=lambda p: p.x)
-			for i in range(0,len(plist),2):
-				lines.append(Line(plist[i],plist[i+1]))
+			if len(plist)%2 != 0:
+				# do something!
+				print "some Error ..."
+			lines.append([])
+			for i in range(0,len(plist)-1,2):
+				lines[len(lines)-1].append(Line(plist[i],plist[i+1]))
 		return lines
 	
 

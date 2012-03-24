@@ -1,1 +1,12 @@
+# OS junk
+[Tt]humbs.db
+.DS_Store
+
+# generated files
 *.pyc
+*.gcode
+
+# py2app
+dist/
+build/
+
