@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 from Tkinter import *
+from tkSimpleDialog import Dialog
 from tkFileDialog import askopenfile,askopenfilename
 from SVG import SVGRenderer
 from GMaker import GMaker
-from geometry import Metrics
+from geometry import Metrics,Point
 from ConfigParser import RawConfigParser
 import sys,os
 
@@ -37,6 +38,7 @@ how to deal with borders:
 defaults={
 	'private':{
 		'last_directory':os.environ['HOME'],
+		'profiles':'{}'
 	},
 	'parse':{
 		'precision':1.0 # or 10.0, 0.1, 0.01,
@@ -68,6 +70,9 @@ defaults={
 	},
 }
 
+
+
+
 def getConfigFile():
 	#mac
 	if sys.platform == 'darwin':
@@ -77,6 +82,61 @@ def getConfigFile():
 	#if sys.platform == 'win32': # i hate windows and i currently ignore it
 	#	return os.path.expanduser()
 
+
+class Askname(Toplevel):
+	
+	
+	def __init__(self,parent,variable=None,label="Name",title="Choose a name..."):
+		Toplevel.__init__(self,parent)
+		self.transient(parent)
+		self.title(title)
+		self.parent=parent
+		self.result=None
+		body = Frame(self)
+		self.initial_focus = self.body(body)
+		body.pack(padx=5, pady=5)
+		
+		self.var = variable
+		Label(self, text=label).pack(side=LEFT,padx=10)
+		Entry(self, textvariable=variable).pack(side=LEFT,padx=10)
+	
+		Button(self, text="Cancel", command=self.cancel).pack(side=LEFT,pady=5)
+		Button(self, text="Okay", command=self.okay).pack(side=LEFT,pady=5)
+		
+		
+		self.grab_set()
+		if not self.initial_focus:
+			self.initial_focus = self
+		self.protocol("WM_DELETE_WINDOW", self.cancel)
+		self.geometry("+%d+%d" % (parent.winfo_rootx()+50,
+									parent.winfo_rooty()+50))
+		
+		self.initial_focus.focus_set()
+		self.wait_window(self)
+		pass
+		
+	def body(self,master):
+		pass
+		
+	def cancel(self,event=None):
+		self.parent.focus_set()
+		self.destroy()
+	
+	def okay(self, event=None):
+		self.result = self.var
+		self.withdraw()
+		self.update_idletasks()
+		self.cancel()
+		
+	
+def askforname(parent):
+	var = StringVar(parent,_("No name..."))
+	a = Askname(parent,var)
+	if a.result: 
+		return a.result.get()
+	return None
+	
+
 class SVGDrawerUI:
 	renderer = None
 	gmaker = None
@@ -84,6 +144,7 @@ class SVGDrawerUI:
 	infilename = None
 	config = RawConfigParser()
 	vars = {}
+	profiles = []
 	
 	# file > cfg ; ui > cfg ; cfg > var ; var > cfg
 	def readConfig(self):
@@ -94,29 +155,63 @@ class SVGDrawerUI:
 			for name in defaults[section]:
 				self.config.set(section,name,defaults[section][name])
 		
+		# write defaults if not exist
 		f = getConfigFile()
 		if os.path.exists(f):
 			self.config.readfp(open(f,'r'))
 		else:
 			sf = open(f,'w')
 			self.config.write(sf)
-			
+		
+		
 		for section in self.config.sections():
 			self.vars[section] = {}
 			for name in self.config.options(section):
+				if section+name in ['privateprofiles']:
+					continue
 				self.vars[section][name] = StringVar(self.win,str(self.config.get(section,name)))
-				
+		
+		
+		self.profiles = eval(self.config.get('private','profiles'))
+		#for a in self.profiles: self.profiles[a] = eval(self.profiles[a])
 	
 	def saveConfig(self):
 		self.config.write(open(getConfigFile(),'w'))
-	
+
+	def saveCurrentProfile(self):
+		name = askforname(self.master)
+		if not name: 
+			return
+		self.profiles[name] = repr(self.getCurrentProfile())
+		self.updateConfig()
+		
+		
+	def selectProfile(self,name="nix"):
+		for section in self.profiles[name]:
+			for var in self.profiles[name][section]:
+				self.vars[section][var].set(self.profiles[name][section][var]);
+		
+		pass
+		
+	def getCurrentProfile(self):
+		c = {}
+		for section in self.vars:
+			if section in ['private']:
+				continue
+			c[section] = {}
+			for name in self.vars[section]:
+				c[section][name] = self.vars[section][name].get()
+		return c
+		
 	def updateConfig(self):
 		for section in self.vars:
 			for name in self.vars[section]:
 				cval = self.vars[section][name].get()
 				if self.config.get(section,name) != cval:
 					self.config.set(section,name,cval)
+		self.config.set('private','profiles',repr(self.profiles))
 		self.saveConfig()
+	
 	
 	def makeMainMenu(self,master):
 		self.menubar = Menu(master, tearoff=0)
@@ -124,6 +219,15 @@ class SVGDrawerUI:
 		filemenu = Menu(self.menubar, tearoff=0)
 		filemenu.add_command(label="Open", command=self._select_file)
 		self.menubar.add_cascade(label="File", menu=filemenu)
+
+		filemenu = Menu(self.menubar, tearoff=0)
+		filemenu.add_command(label="Save current profile...", command=self.saveCurrentProfile)
+		filemenu.add_separator()
+		
+		for name in self.profiles:
+			filemenu.add_command(label=name, command=lambda name=name: self.selectProfile(name))
+		
+		self.menubar.add_cascade(label="Profiles", menu=filemenu)
 		
 		master.config(menu=self.menubar)
 	
@@ -132,7 +236,6 @@ class SVGDrawerUI:
 		self.master.protocol("WM_DELETE_WINDOW", self.quit)
 		# read defaults an init config
 		
-		self.makeMainMenu(master);
 		
 		# main window
 		self.win = Frame(master,width=800)
@@ -142,6 +245,8 @@ class SVGDrawerUI:
 		opts.pack(side=LEFT)
 		
 		self.readConfig()
+		self.makeMainMenu(master);
+		
 		br = Frame(opts)
 		br.pack(padx=10,fill='x')
 		
@@ -304,12 +409,50 @@ class SVGDrawerUI:
 	
 	def draw(self):
 		# make
-		scale = float(self.canvas.winfo_width())/200.0
+		self.canvas.delete(ALL)
+		scale = float(self.canvas.winfo_width()-20) / max(self.gmaker.pmax.x,self.gmaker.pmax.y)
+		w = (self.gmaker.pmax.x-self.gmaker.pmin.x)*scale
+		h = (self.gmaker.pmax.y-self.gmaker.pmin.y)*scale
+		move = Point((float(self.canvas.winfo_width())-w)/2.0,(float(self.canvas.winfo_height())-h)/2.0) + Point(10,10)
+
 		for line in self.gmaker.draws:
-			self.canvas.create_line(line.p0.x*scale,line.p0.y*scale,line.pn.x*scale,line.pn.y*scale,fill='#666666')
-		return
-		for line in self.gmaker.draws:
-			self.canvas.create_line(line.p0.x*scale,line.p0.y*scale,line.pn.x*scale,line.pn.y*scale,fill='#ff0000')
+			self.canvas.create_line( move.x+line.p0.x*scale, move.y+line.p0.y*scale, move.x+line.pn.x*scale, move.y+line.pn.y*scale, fill='#666666')
+		
+		
+		# rulers
+		self.canvas.create_rectangle(0,0,self.canvas.winfo_width(),10,fill='#999999',width=0)
+		self.canvas.create_rectangle(0,10,10,self.canvas.winfo_height(),fill='#999999',width=0)
+		#self.canvas.create_line(0,10,self.canvas.winfo_width(),10,fill='#000000',border=None)
+		#self.canvas.create_line(10,0,10,self.canvas.winfo_height(),fill='#000000',border=None)
+		
+		fct=5
+		i=0
+		x = move.x
+		while x < self.canvas.winfo_width():
+			if (i%10) == 0: 
+				l=10
+				self.canvas.create_text(x+1,2,anchor=NW,text=str(fct*i),font=("Helvetica",9,"normal"))
+			else: 
+				l=5
+			self.canvas.create_line(x,10-l,x,10,fill='#000000')
+			x+=fct*scale
+			i+=1
+		
+		i=0
+		y = move.y
+		while y < self.canvas.winfo_height():
+			if (i%10) == 0: 
+				l=10
+				self.canvas.create_text(2,y+1,anchor=NW,text=str(fct*i),font=("Helvetica",9,"normal"))
+			else: 
+				l=5
+			self.canvas.create_line(10-l,y,10,y,fill='#000000')
+			y+=fct*scale
+			i+=1
+			
+		#self.canvas.create_line(move.x-5, move.y, move.x+5, move.y, fill='#ff0000')
+		#self.canvas.create_line(move.x, move.y-5, move.x, move.y+5, fill='#ff0000')
+		
 		
 	def can_convert(self):
 		return self.infilename != None and os.path.exists(self.infilename)

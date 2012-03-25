@@ -105,10 +105,10 @@ class Point:
 		return p
 	
 	def __eq__(self,other):
-		return other != None and self.x == other.y and self.y == other.y
+		return other != None and self.x == other.x and self.y == other.y
 	
 	def __ne__(self,other):
-		return other == None or self.x != other.y or self.y != other.y
+		return other == None or self.x != other.x or self.y != other.y
 	
 	def __str__(self):
 		return "(Point: x=%s y=%s)" % (self.x,self.y)
@@ -124,7 +124,7 @@ class Line:
 	
 	def __init__(self,p0,pn):
 		if p0==pn:
-			raise ValueError("p0 must differ from pn!")
+			raise ValueError("p0 %s must differ from pn %s" % (p0,pn))
 		self.p0=p0
 		self.pn=pn
 		
@@ -435,22 +435,21 @@ class CubicBezier(Bezier):
 
 
 class Form:
-	border=None
 	fill=None
 	
 	def __init__(self,border=(1,0),fill=255): # border=width,color, fill=color
-		self.border_width , self.border_color = border
-		self.fill=fill
+		self.border_width,self.border_color = border
+		self.fill = fill
 		
-		self.lines = None
-		self.points=[]
+		self.lines  = None
+		self.points = []
 		self.bounds = Line(Point(float('inf'),float('inf')),Point(-float('inf'),-float('inf')))
 	
 	
 	def addPoint(self,point,type='draw'):
 		if not isinstance(point,Point):
 			raise TypeError("'point' is not of type Point")
-		
+		self.lines = None
 		self.bounds.p0.x = min(point.x,self.bounds.p0.x)
 		self.bounds.p0.y = min(point.y,self.bounds.p0.y)
 		self.bounds.pn.x = max(point.x,self.bounds.pn.x)
@@ -463,9 +462,28 @@ class Form:
 			self.lines = []
 			for i in range(1,len(self.points)):
 				cmd,p = self.points[i]
-				#if cmd == 'draw': 
+				#print self.points[i-1][1],p,'\n'
 				self.lines.append((cmd,Line(self.points[i-1][1],p)))
 		return self.lines
+
+	def __add__(self,other):
+		if Point != other.__class__:
+			raise ValueError("'other' must be 'Point'")
+		cls = self.__class__
+		f = cls((self.border_width,self.border_color),self.fill)
+		for cmd,p in self.points:
+			f.addPoint(p+other,type=cmd)
+		return f
+
+	def __sub__(self,other):
+		if Point != other.__class__:
+			raise ValueError("'other' must be 'Point'")
+		cls = self.__class__
+		f = cls((self.border_width,self.border_color),self.fill)
+		for cmd,p in self.points:
+			f.addPoint(p-other,type=cmd)
+		return f
+		
 		
 	
 class Polygon(Form):
@@ -480,10 +498,6 @@ class Polygon(Form):
 #			self.lines.append(("draw",Line(self.lines[l-1][1].pn,self.lines[0][1].p0)))
 #		return self.lines
 	
-	
-	def getDrawable(self):
-		
-		pass
 	
 	
 	# always closed!
@@ -520,7 +534,6 @@ class Polygon(Form):
 			# sort plist by point.x, point.y - x or y depends on angle
 			plist = sorted(pls, key=lambda p: p.x)
 			if len(plist)%2 != 0:
-				# do something!
 				print "some Error ..."
 			lines.append([])
 			for i in range(0,len(plist)-1,2):

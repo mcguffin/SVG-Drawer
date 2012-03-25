@@ -163,7 +163,7 @@ class SVGRenderer(LinearMoves):
 		
 	def rect(self,attrs,end=False):
 		if end: return
-		print attrs
+		#print attrs
 		self._form(Polygon(*self.drawing_attrs(attrs)))
 		x=self.curX=float(attrs["x"])*unit
 		y=self.curY=float(attrs["y"])*unit

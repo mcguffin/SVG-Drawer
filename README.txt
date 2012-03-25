@@ -5,25 +5,18 @@ SVG-Drawer
 Generates GCode for drawing SVG Shapes.
 (see also http://www.thingiverse.com/thing:19038)
 
+It currently understands the SVG-Tags
+	RECT, CIRCLE, ELLIPSE, LINE, POLYLINE, POLYGON, PATH
 
-It currently understands these SVG-Tags:
-RECT
-CIRCLE
-ELLIPSE
-LINE
-POLYLINE
-POLYGON
-PATH	(limited support)
+For PATH-elements there is only limited support, as it does not parse quadratic bezier curves and arcs.
 
-Usage: python svg2gcode.py <some-svg-file>
+
 
 
 
 
 To-Do:
 - PATH: Q,q,T,t (Quadratic bezier)
-		A,a		(Arc)
-- Option: Ignore Paths with no fill and no stroke
-- make different gcodes from different stroke-widths / -colors
-- set fill angles and / or density by colors in 
-- How to deal with unary list of intersection points in geometry.Polygon.getHatching()
+		A,a		(Arcs)
+- Core: Odd behavior at 0° and 90° angles
+- UI: Realign UI at window resizing

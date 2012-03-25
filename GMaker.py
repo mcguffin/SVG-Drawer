@@ -76,26 +76,47 @@ class GMaker:
 		for k,v in machine: self.machine_settings[k] = v
 		for k,v in border: self.border_settings[k] = v
 		for k,v in fill: self.fill_settings[k] = v
+		
 		self.data = data
+		
+		# make angles
+		start = ((math.pi*2)*(float(self.fill_settings['angle'])/360.0))
+		anglestep = math.pi/float(self.fill_settings['hatching_layers'])
+		self.angles = [start + anglestep*i for i in range(int(self.fill_settings['hatching_layers']))]
+		
 		self.moves=[]
 		self.draws=[]
 		
 	def getDrawingCode(self):
-		t1 = Point(-1,1)
-		G="G1 F%d\n"%self.feedrate
-		xmin = float('inf')
-		xmax = -float('inf')
+		
+		G="G92 X0 Y0 Z0 E0\n"
+		G+="G1 F%d\n"%self.feedrate # set feedrate
+		self.pmin = Point(float('inf'),float('inf'))
+		self.pmax = Point(float('-inf'),float('-inf'))
 		for form in self.data.forms:
-			xmin = min(form.bounds.p0.x,xmin)
-			xmax = max(form.bounds.pn.x,xmax)
-		t2 = Point(xmin + xmax,0)
+			self.pmin.x = min(form.bounds.p0.x,self.pmin.x)
+			self.pmin.y = min(form.bounds.p0.y,self.pmin.y)
+			self.pmax.x = max(form.bounds.pn.x,self.pmax.x)
+			self.pmax.y = max(form.bounds.pn.y,self.pmax.y)
+		
+		
+		# start drawing at 0/0
+		for i in range(len(self.data.forms)):
+			self.data.forms[i] = self.data.forms[i] - self.pmin
+		self.pmin = Point(0,0)
+		self.pmax = self.pmax - self.pmin
+		
+		# scale and move parameter ...
+		t1 = Point(-1,1)
+		t2 = Point(self.pmax.x,0)
+		
 		for form in self.data.forms:
 			do_border = form.border_width >= float(self.border_settings["width_threshold"])
 			do_border = do_border and form.border_color >= float(self.border_settings["color_threshold"])
 			
 			do_fill =  True
 			lastP = None
-			print do_border
+			
 			if do_border:
 				lines = form.getLines()
 				
@@ -118,27 +139,15 @@ class GMaker:
 					lastP = ((l.pn*t1)+t2)
 					
 			if do_fill:
-				fillsteps = int(self.fill_settings['hatching_layers']) * int(self.fill_settings['hatching_density_steps'])
-				start = (math.pi*2)*(float(self.fill_settings['angle'])/360.0)
-				
-				
-				step = math.pi/float(self.fill_settings['hatching_layers'])
-				angles = []
-				for i in range(int(self.fill_settings['hatching_layers'])):
-					angles.append(start + step*i)
-				angles = [math.pi*0.625,math.pi*0.75]
-				angles = [math.pi*0.125,math.pi*0.25,math.pi*0.375,math.pi*0.5,math.pi*0.625,math.pi*0.75]
-				angles = [math.pi*0.125]
-				#angles = []
-				stepfill = float(form.fill) / 255.0
-				brk = float(fillsteps) * stepfill
+				brk = (float(form.fill) / 255.0) * len(self.angles)
+				densities = [10.0/float(self.fill_settings['hatching_max_density']) for i in range(int(brk))]
+				last = brk - math.floor(brk)
+				if last>0:
+					densities.append(10/(float(self.fill_settings['hatching_min_density'])+last*(float(self.fill_settings['hatching_max_density'])-float(self.fill_settings['hatching_min_density']))))
 				i=0
-				for angle in angles:
-					if i>=brk: break;
-					i+=1
+				for density in densities:
 					odd = False
-					density = 2
-					for line in form.getHatchingLayer(angle,density):
+					for line in form.getHatchingLayer(self.angles[i],density):
 						#if odd: f = f.reverse()
 						for f in line:
 							coord = ((f.p0*t1)+t2).value()
@@ -150,6 +159,7 @@ class GMaker:
 								self.moves.append(Line(lastP,((f.pn*t1)+t2)))
 							self.draws.append(f)
 							lastP = ((f.pn*t1)+t2)
+					i+=1
 			
 		G+="G1 Z%d\n"%self.endZ
 		return G
